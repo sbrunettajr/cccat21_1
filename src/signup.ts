@@ -69,4 +69,81 @@ app.get("/accounts/:accountId", async (req: Request, res: Response) => {
     res.json(accountData);
 });
 
+app.post('/deposit', async (req: Request, res: Response) => {
+    const {
+        accountId,
+        assetId,
+        quantity
+    } = req.body
+
+    if (!isValidAssetId(assetId)) {
+        return res.status(422).json({
+            error: 'Invalid assetId'
+        })
+    }
+
+    if (quantity <= 0) {
+        return res.status(422).json({
+            error: 'Invalid quantity'
+        })
+    }
+
+    const [accountData] = await connection.query("select * from ccca.account where account_id = $1", [accountId]);
+    if (!accountData) {
+        return res.status(422).json({
+            error: 'Invalid accountId'
+        })
+    }
+
+    await connection.query("insert into ccca.account_asset(account_id, asset_id, quantity) values ($1, $2, $3);", [accountId, assetId, quantity])
+
+    return res.status(204).send()
+})
+
+export function isValidAssetId(assetId: string) {
+    return assetId.match(/^(BTC|USD)$/);
+}
+
+app.post('/withdraw', async (req: Request, res: Response) => {
+    const {
+        accountId,
+        assetId,
+        quantity
+    } = req.body
+
+    if (!isValidAssetId(assetId)) {
+        return res.status(422).json({
+            error: 'Invalid assetId'
+        })
+    }
+
+    if (quantity <= 0) {
+        return res.status(422).json({
+            error: 'Invalid quantity'
+        })
+    }
+
+    const [accountData] = await connection.query("select * from ccca.account where account_id = $1", [accountId]);
+    if (!accountData) {
+        return res.status(422).json({
+            error: 'Invalid accountId'
+        })
+    }
+
+    const [accountAssetData] = await connection.query("select * from ccca.account_asset where account_id = $1 and asset_id = $2", [accountId, assetId])
+    if (!accountAssetData) {
+        return res.status(422).json({
+            error: 'Invalid withdraw'
+        })
+    }
+
+    if (accountAssetData.quantity < quantity) {
+        return res.status(422).json({
+            error: 'Invalid quantity'
+        })
+    }
+
+    return res.status(204).send()
+})
+
 app.listen(3000);
